@@ -25,6 +25,7 @@ AlignAfterOpenBracket: true
 AlignArrayOfStructures: Left
 
 AlignConsecutiveAssignments: Consecutive
+PointerAlignment: Middle
 
 AlignConsecutiveBitFields:
   Enabled: true

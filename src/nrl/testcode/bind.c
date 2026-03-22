@@ -1,3 +1,4 @@
+#include "bind.h"
 #include <bits/types/struct_timeval.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -7,21 +8,6 @@
 #include <termios.h>
 #include <unistd.h>
 
-#define FUNCTION 1
-#define NODE 2
-#define NONE 0
-#define auto(x, y) typeof(y) x = y
-
-#define nonnull _Nonnull
-#define nullable _Nullable
-
-struct bind_node_str {
-    uint16_t timeout_us;
-    char type; // 暂时那三个define
-    void *ptr;
-};
-
-typedef struct bind_node_str BIND_NODE_T;
 fd_set set;
 struct timeval timeout;
 
@@ -36,7 +22,7 @@ void initialize_keymap(void) {
     memset(root.ptr, 0, 256 * sizeof(BIND_NODE_T));
 }
 
-int add_bind(long timeout, char *nonnull seq, void *nonnull func) {
+int add_bind(long timeout, char * nonnull seq, void * nonnull func) {
     auto(node, &root);
     // 目前seq不可能为0
     // 目前func不可能为0
@@ -51,7 +37,7 @@ int add_bind(long timeout, char *nonnull seq, void *nonnull func) {
             } else if (node->type == FUNCTION) {
                 node->type       = NODE;
                 node->timeout_us = timeout;
-                void *tmp        = node->ptr;
+                void * tmp       = node->ptr;
                 node->ptr        = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
                 ((BIND_NODE_T *)node->ptr)[0].type = FUNCTION;
                 ((BIND_NODE_T *)node->ptr)[0].ptr  = tmp;
@@ -75,56 +61,77 @@ void fuck(void) { printf("fuck\n"); }
 
 void input_loop(void) {
     while (1) {
-        auto(node, &root);
+        void * nullable addr = NULL;
         while (1) {
             char c;
-            int i = read(STDIN_FILENO, &c, 1);
-            node  = &(((BIND_NODE_T *)node->ptr)[c]);
-            if (node->type == FUNCTION) {
-                printf("matched\n");
-                ((void (*)(void))node->ptr)();
-                break;
-            } else if (node->type == NONE) {
-                printf("none,");
-                break;
-            } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type != FUNCTION) {
-                printf("waiting,");
-            } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type == FUNCTION) {
-                printf("fork,");
-                timeout.tv_sec  = 0;
-                timeout.tv_usec = (long)node->timeout_us;
-                FD_ZERO(&set);
-                FD_SET(1, &set);
-
-                if (select(2, &set, NULL, NULL, &timeout) == 0) {
-                    printf("timeout\n");
-                    ((void (*)(void))((BIND_NODE_T *)node->ptr)[0].ptr)();
-                    break;
-                } else {
-                    printf("notimeout,");
-                    continue;
+            int i         = read(STDIN_FILENO, &c, 1);
+            SUCCESS_T ret = further_match(&addr, c);
+            if (ret == 0) {
+                if (addr) {
+                    ((void (*)(void))addr)();
                 }
+                break;
+            } else if (ret == -1) {
+                break;
             }
         }
     }
 }
+
+SUCCESS_T further_match(void * nonnull * nonnull addr, char byte) {
+    static auto(node, &root);
+    node = &(((BIND_NODE_T *)node->ptr)[byte]);
+    if (node->type == FUNCTION) {
+        // printf("matched\n");
+        //((void (*)(void))node->ptr)();
+        *addr = node->ptr;
+        node  = &root;
+        return 0;
+    } else if (node->type == NONE) {
+        // printf("none,");
+        *addr = NULL;
+        node  = &root;
+        return -1;
+    } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type != FUNCTION) {
+        // printf("waiting,");
+        return 1;
+    } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type == FUNCTION) {
+        // printf("fork,");
+        timeout.tv_sec  = 0;
+        timeout.tv_usec = (long)node->timeout_us;
+        FD_ZERO(&set);
+        FD_SET(1, &set);
+
+        if (select(2, &set, NULL, NULL, &timeout) == 0) {
+            // printf("timeout\n");
+            *addr = ((BIND_NODE_T *)node->ptr)[0].ptr;
+            //((void (*)(void))((BIND_NODE_T *)node->ptr)[0].ptr)();
+            node = &root;
+            return 0;
+        } else {
+            // printf("notimeout,");
+            return 1;
+        }
+    }
+}
+
 void enable_raw(void) {
     struct termios raw = orig_termios;
     raw.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 }
 
-int main(void) {
-    initialize_keymap();
-
-    // 初始化终端
-    tcgetattr(STDIN_FILENO, &orig_termios);
-    setvbuf(stdout, NULL, _IONBF, 0);
-    enable_raw();
-
-    add_bind(1, "\033", a);
-    add_bind(0, "\033[A", b);
-    add_bind(100000, "fuck", fuck);
-    input_loop();
-    return 0;
-}
+// int main(void) {
+//     initialize_keymap();
+//
+//     // 初始化终端
+//     tcgetattr(STDIN_FILENO, &orig_termios);
+//     setvbuf(stdout, NULL, _IONBF, 0);
+//     enable_raw();
+//
+//     add_bind(1, "\033", a);
+//     add_bind(0, "\033[A", b);
+//     add_bind(100000, "fuck", fuck);
+//     input_loop();
+//     return 0;
+// }
