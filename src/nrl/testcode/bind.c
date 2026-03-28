@@ -12,8 +12,6 @@
 fd_set set;
 struct timeval timeout;
 
-struct termios orig_termios;
-
 BIND_NODE_T root = {0, NONE, 0};
 
 void initialize_keymap(void) {
@@ -134,26 +132,27 @@ int add_bind(long timeout, char * nonnull seq, void * nonnull func) {
         return 0;
 }
 
-void input_loop(void) {
-        while (1) {
-                void * nullable addr = NULL;
-                while (1) {
-                        char c;
-                        int i         = read(STDIN_FILENO, &c, 1);
-                        SUCCESS_T ret = further_match(&addr, c);
-                        if (ret == 0) {
-                                if (addr) {
-                                        ((void (*)(void))addr)();
-                                }
-                                break;
-                        } else if (ret == -1) {
-                                break;
-                        }
-                }
-        }
-}
+// void input_loop(void) {
+//         while (1) {
+//                 void * nullable addr = NULL;
+//                 while (1) {
+//                         char c;
+//                         int i         = read(STDIN_FILENO, &c, 1);
+//                         SUCCESS_T ret = further_match(&addr, c);
+//                         if (ret == 0) {
+//                                 if (addr) {
+//                                         ((void (*)(void))addr)();
+//                                 }
+//                                 break;
+//                         } else if (ret == -1) {
+//                                 break;
+//                         }
+//                 }
+//         }
+// }
 
 SUCCESS_T further_match(void * nonnull * nonnull addr, char byte) {
+        // 约定:返回值0:成功,-1:失败,1,继续
         static auto(node, &root);
         node = &(((BIND_NODE_T *)node->ptr)[byte]);
         if (node->type == FUNCTION) {
