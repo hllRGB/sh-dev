@@ -1,4 +1,4 @@
-/* vim: set ts=8 sw=8 sts=8 el: */
+/* vim: set ts=8 sw=8 sts=8 et: */
 #include "bind.h"
 #include "cursor.h"
 #include <stdio.h>
@@ -41,6 +41,7 @@ int main(int argc, char * argv[]) {
         add_bind(0, "r", red);
         add_bind(0, "g", green);
         add_bind(0, "b", blue);
+        rm_bind("h");
         tcgetattr(STDIN_FILENO, &orig_termios);
         orig_termios.c_lflag &= ~(ICANON | ECHO);
         tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);

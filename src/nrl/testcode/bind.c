@@ -32,14 +32,14 @@ int rm_bind(char * nonnull seq) {
                 // 这里需要注意，取得元素后first应该跟进指针，
                 // 因为这个元素马上就会被清零或者free.
                 // 后续同逻辑。
-                first = ((BIND_NODE_T *)(((BIND_NODE_T *)first->ptr)[*seq].ptr));
+                first = ((BIND_NODE_T *)first[*seq].ptr);
                 //                                                        ^在这里跟进指针
                 //  这里first已经跟进,last保持.现在需要基于last来清理元素以及数组.
                 //  开始进行清理.
                 // 现在已经进入字符串节点。判断字符串是否将要结束。
                 if (*(seq + 1) != 0) { // 字符串并非快要结束
                         // 那么这里只能是NODE.由于需要完全匹配,如果遇到FUNCION与NONE,应当报错没有该绑定.
-                        if (first->type != NODE) {
+                        if (last[*seq].type != NODE) {
                                 fprintf(stderr, "fuck,没有该绑定!");
                                 return 1;
                         }
@@ -64,7 +64,7 @@ int rm_bind(char * nonnull seq) {
                         last = first;         // 慢指针跟进.
                 } else if (*(seq + 1) == 0) { // 字符串将要结束.
                         // 那么这里只能是FUNCION.由于需要完全匹配,如果遇到NODE与NONE,应当报错没有该绑定.
-                        if (first->type != FUNCTION) {
+                        if (last[*seq].type != FUNCTION) {
                                 fprintf(stderr, "fuck,没有该绑定!");
                                 return 1;
                         }
