@@ -17,10 +17,12 @@ struct bind_node_str {
 typedef struct bind_node_str BIND_NODE_T;
 typedef int8_t SUCCESS_T;
 
-extern void initialize_keymap(void);
+extern BIND_NODE_T * nonnull initialize_keymap(void);
 
-extern int add_bind(long timeout, char * nonnull seq, void * nonnull func);
+extern int
+add_bind(BIND_NODE_T * nonnull root, long timeout, char * nonnull seq, void * nonnull func);
 
-extern SUCCESS_T further_match(void * nonnull * nonnull addr, char byte);
+extern SUCCESS_T
+further_match(BIND_NODE_T * nonnull root, void * nonnull * nonnull addr, char byte);
 
-extern int rm_bind(char * nonnull seq);
+extern int rm_bind(BIND_NODE_T * nonnull root, char * nonnull seq);

@@ -12,17 +12,17 @@
 fd_set set;
 struct timeval timeout;
 
-BIND_NODE_T root = {0, NONE, 0};
-
-void initialize_keymap(void) {
+BIND_NODE_T * initialize_keymap(void) {
         // root array has 256 elements.
-        root.type = NODE;
-        root.ptr  = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
-        memset(root.ptr, 0, 256 * sizeof(BIND_NODE_T));
+        BIND_NODE_T * root = (BIND_NODE_T *)malloc(sizeof(BIND_NODE_T));
+        root->type         = NODE;
+        root->ptr          = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
+        memset(root->ptr, 0, 256 * sizeof(BIND_NODE_T));
+        return root;
 }
-int rm_bind(char * nonnull seq) {
+int rm_bind(BIND_NODE_T * nonnull root, char * nonnull seq) {
         // 约定: 1为未找到该绑定.0为成功解除.-1为未定义行为.
-        auto(first, (BIND_NODE_T *)root.ptr);
+        auto(first, (BIND_NODE_T *)root->ptr);
         auto(last, first);
         // 目前seq不可能为0
         // 遍历字符串.
@@ -49,8 +49,8 @@ int rm_bind(char * nonnull seq) {
                         last[*seq].ptr  = NULL;
                         // 元素清理完成.
                         // 开始检查是否需要释放数组.
-                        int status = 0;      // 用或运算检查是否还有其它元素
-                        if (last != &root) { // 检查是不是root所指数组
+                        int status = 0;     // 用或运算检查是否还有其它元素
+                        if (last != root) { // 检查是不是root所指数组
                                 int status = 0;
                                 for (uint16_t i = 0; i <= 255; i++) {
                                         status |= last[i].type; // 检查是否数组全空.
@@ -74,8 +74,8 @@ int rm_bind(char * nonnull seq) {
                         last[*seq].ptr  = NULL;
                         // 元素清理完成.
                         // 开始检查是否需要释放数组.
-                        int status = 0;      // 用或运算检查是否还有其它元素
-                        if (last != &root) { // 检查是不是root所指数组
+                        int status = 0;     // 用或运算检查是否还有其它元素
+                        if (last != root) { // 检查是不是root所指数组
                                 int status = 0;
                                 for (uint16_t i = 0; i <= 255; i++) {
                                         status |= last[i].type; // 检查是否数组全空.
@@ -93,8 +93,8 @@ int rm_bind(char * nonnull seq) {
         return -1; // 遇到未定义行为.
 }
 
-int add_bind(long timeout, char * nonnull seq, void * nonnull func) {
-        auto(node, &root);
+int add_bind(BIND_NODE_T * nonnull root, long timeout, char * nonnull seq, void * nonnull func) {
+        auto(node, root);
         // 目前seq不可能为0
         // 目前func不可能为0
         for (; *seq; seq++) {
@@ -151,20 +151,21 @@ int add_bind(long timeout, char * nonnull seq, void * nonnull func) {
 //         }
 // }
 
-SUCCESS_T further_match(void * nonnull * nonnull addr, char byte) {
+SUCCESS_T further_match(BIND_NODE_T * nonnull root, void * nonnull * nonnull addr, char byte) {
         // 约定:返回值0:成功,-1:失败,1,继续
-        static auto(node, &root);
+        static typeof(root) node;
+        node = root;
         node = &(((BIND_NODE_T *)node->ptr)[byte]);
         if (node->type == FUNCTION) {
                 // printf("matched\n");
                 //((void (*)(void))node->ptr)();
                 *addr = node->ptr;
-                node  = &root;
+                node  = root;
                 return 0;
         } else if (node->type == NONE) {
                 // printf("none,");
                 *addr = NULL;
-                node  = &root;
+                node  = root;
                 return -1;
         } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type != FUNCTION) {
                 // printf("waiting,");
@@ -180,7 +181,7 @@ SUCCESS_T further_match(void * nonnull * nonnull addr, char byte) {
                         // printf("timeout\n");
                         *addr = ((BIND_NODE_T *)node->ptr)[0].ptr;
                         //((void (*)(void))((BIND_NODE_T *)node->ptr)[0].ptr)();
-                        node = &root;
+                        node = root;
                         return 0;
                 } else {
                         // printf("notimeout,");

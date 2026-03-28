@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 struct termios orig_termios;
+BIND_NODE_T * root = NULL;
 
 void input_loop(void) {
         while (1) {
@@ -13,7 +14,7 @@ void input_loop(void) {
                 while (1) {
                         char c;
                         int i         = read(STDIN_FILENO, &c, 1);
-                        SUCCESS_T ret = further_match(&addr, c);
+                        SUCCESS_T ret = further_match(root, &addr, c);
                         if (ret == 0) {
                                 if (addr) {
                                         ((void (*)(void))addr)();
@@ -33,15 +34,14 @@ void green(void) { printf("\033[32m"); }
 void blue(void) { printf("\033[34m"); }
 
 int main(int argc, char * argv[]) {
-        initialize_keymap();
-        add_bind(0, "h", cursor_left);
-        add_bind(0, "j", cursor_down);
-        add_bind(0, "k", cursor_up);
-        add_bind(0, "l", cursor_right);
-        add_bind(0, "r", red);
-        add_bind(0, "g", green);
-        add_bind(0, "b", blue);
-        rm_bind("h");
+        root = initialize_keymap();
+        add_bind(root, 0, "h", cursor_left);
+        add_bind(root, 0, "j", cursor_down);
+        add_bind(root, 0, "k", cursor_up);
+        add_bind(root, 0, "l", cursor_right);
+        add_bind(root, 0, "r", red);
+        add_bind(root, 0, "g", green);
+        add_bind(root, 0, "b", blue);
         tcgetattr(STDIN_FILENO, &orig_termios);
         orig_termios.c_lflag &= ~(ICANON | ECHO);
         tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
