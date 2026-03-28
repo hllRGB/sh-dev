@@ -17,31 +17,22 @@ void input_loop(void) {
                         SUCCESS_T ret = further_match(root, &addr, c);
                         if (ret == 0) {
                                 if (addr) {
+                                        // 这里应该是行编辑函数之类的，到后期改.
                                         ((void (*)(void))addr)();
                                 }
                                 break;
                         } else if (ret == -1) {
+                                // 这里应该是默认函数之类的，到后期改.
                                 write(STDOUT_FILENO, &c, 1);
                                 break;
                         }
                 }
         }
 }
-void red(void) { printf("\033[31m"); }
-
-void green(void) { printf("\033[32m"); }
-
-void blue(void) { printf("\033[34m"); }
 
 int main(int argc, char * argv[]) {
         root = initialize_keymap();
-        add_bind(root, 0, "h", cursor_left);
-        add_bind(root, 0, "j", cursor_down);
-        add_bind(root, 0, "k", cursor_up);
-        add_bind(root, 0, "l", cursor_right);
-        add_bind(root, 0, "r", red);
-        add_bind(root, 0, "g", green);
-        add_bind(root, 0, "b", blue);
+
         tcgetattr(STDIN_FILENO, &orig_termios);
         orig_termios.c_lflag &= ~(ICANON | ECHO);
         tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
