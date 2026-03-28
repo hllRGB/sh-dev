@@ -1,7 +1,7 @@
 # 列宽限制（超过则触发换行）
 BasedOnStyle : LLVM
 ColumnLimit: 100
-IndentWidth: 4
+IndentWidth: 8
 
 # 二元逻辑运算符（&&、||）换行时放在行首
 BreakBeforeBinaryOperators: All

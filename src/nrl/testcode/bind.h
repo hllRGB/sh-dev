@@ -9,9 +9,9 @@
 #define nullable _Nullable
 
 struct bind_node_str {
-    uint16_t timeout_us;
-    char type; // 暂时那三个define
-    void * nonnull ptr;
+        uint16_t timeout_us;
+        char type; // 暂时那三个define
+        void * nonnull ptr;
 };
 
 typedef struct bind_node_str BIND_NODE_T;
@@ -22,3 +22,5 @@ extern void initialize_keymap(void);
 extern int add_bind(long timeout, char * nonnull seq, void * nonnull func);
 
 extern SUCCESS_T further_match(void * nonnull * nonnull addr, char byte);
+
+extern int rm_bind(char * nonnull seq);

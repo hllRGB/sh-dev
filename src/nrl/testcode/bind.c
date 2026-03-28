@@ -1,3 +1,4 @@
+/* vim: set ts=8 sw=8 nu rnu sts=8 et: */
 #include "bind.h"
 #include <bits/types/struct_timeval.h>
 #include <stdint.h>
@@ -16,109 +17,178 @@ struct termios orig_termios;
 BIND_NODE_T root = {0, NONE, 0};
 
 void initialize_keymap(void) {
-    // root array has 256 elements.
-    root.type = NODE;
-    root.ptr  = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
-    memset(root.ptr, 0, 256 * sizeof(BIND_NODE_T));
+        // root array has 256 elements.
+        root.type = NODE;
+        root.ptr  = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
+        memset(root.ptr, 0, 256 * sizeof(BIND_NODE_T));
+}
+int rm_bind(char * nonnull seq) {
+        // 约定: 1为未找到该绑定.0为成功解除.-1为未定义行为.
+        auto(first, (BIND_NODE_T *)root.ptr);
+        auto(last, first);
+        // 目前seq不可能为0
+        // 遍历字符串.
+        for (; *seq; seq++) {
+                // 在第一次时位于root所指数组,而它应该不可能被释放.
+                // 第一次时将直接访问一次数组。
+                // 这里需要注意，取得元素后first应该跟进指针，
+                // 因为这个元素马上就会被清零或者free.
+                // 后续同逻辑。
+                first = ((BIND_NODE_T *)(((BIND_NODE_T *)first->ptr)[*seq].ptr));
+                //                                                        ^在这里跟进指针
+                //  这里first已经跟进,last保持.现在需要基于last来清理元素以及数组.
+                //  开始进行清理.
+                // 现在已经进入字符串节点。判断字符串是否将要结束。
+                if (*(seq + 1) != 0) { // 字符串并非快要结束
+                        // 那么这里只能是NODE.由于需要完全匹配,如果遇到FUNCION与NONE,应当报错没有该绑定.
+                        if (first->type != NODE) {
+                                fprintf(stderr, "fuck,没有该绑定!");
+                                return 1;
+                        }
+                        // 异常处理结束.
+                        // 开始清理元素.
+                        last[*seq].type = NONE;
+                        last[*seq].ptr  = NULL;
+                        // 元素清理完成.
+                        // 开始检查是否需要释放数组.
+                        int status = 0;      // 用或运算检查是否还有其它元素
+                        if (last != &root) { // 检查是不是root所指数组
+                                int status = 0;
+                                for (uint16_t i = 0; i <= 255; i++) {
+                                        status |= last[i].type; // 检查是否数组全空.
+                                }
+                                if (status == 0) {
+                                        free(last); // 全空则释放它.
+                                }
+                        }
+                        // 数组释放处理完毕.
+                        // 清理完毕.
+                        last = first;         // 慢指针跟进.
+                } else if (*(seq + 1) == 0) { // 字符串将要结束.
+                        // 那么这里只能是FUNCION.由于需要完全匹配,如果遇到NODE与NONE,应当报错没有该绑定.
+                        if (first->type != FUNCTION) {
+                                fprintf(stderr, "fuck,没有该绑定!");
+                                return 1;
+                        }
+                        // 异常处理结束.
+                        // 开始进行清理.
+                        last[*seq].type = NONE;
+                        last[*seq].ptr  = NULL;
+                        // 元素清理完成.
+                        // 开始检查是否需要释放数组.
+                        int status = 0;      // 用或运算检查是否还有其它元素
+                        if (last != &root) { // 检查是不是root所指数组
+                                int status = 0;
+                                for (uint16_t i = 0; i <= 255; i++) {
+                                        status |= last[i].type; // 检查是否数组全空.
+                                }
+                                if (status == 0) {
+                                        free(last); // 全空则释放它.
+                                }
+                        }
+                        // 数组释放处理完毕.
+                        // 清理完毕.
+                        // 现在清理完成，位于末尾，接下来的执行没有必要，直接返回0.
+                        return 0;
+                }
+        }
+        return -1; // 遇到未定义行为.
 }
 
 int add_bind(long timeout, char * nonnull seq, void * nonnull func) {
-    auto(node, &root);
-    // 目前seq不可能为0
-    // 目前func不可能为0
-    for (; *seq; seq++) {
+        auto(node, &root);
+        // 目前seq不可能为0
+        // 目前func不可能为0
+        for (; *seq; seq++) {
 
-        node = &(((BIND_NODE_T *)node->ptr)[*seq]);
-        if (*(seq + 1) != 0) {
-            if (node->type == NONE) {
-                node->type = NODE;
-                node->ptr  = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
-                memset(node->ptr, 0, 256 * sizeof(BIND_NODE_T));
-            } else if (node->type == FUNCTION) {
-                node->type       = NODE;
-                node->timeout_us = timeout;
-                void * tmp       = node->ptr;
-                node->ptr        = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
-                ((BIND_NODE_T *)node->ptr)[0].type = FUNCTION;
-                ((BIND_NODE_T *)node->ptr)[0].ptr  = tmp;
-            }
-        } else if (*(seq + 1) == 0) {
-            if (node->type == NONE || node->type == FUNCTION) {
-                node->ptr  = func;
-                node->type = FUNCTION;
-            } else if (node->type == NODE) {
-                ((BIND_NODE_T *)node->ptr)[0].type = FUNCTION;
-                ((BIND_NODE_T *)node->ptr)[0].ptr  = func;
-            }
+                node = &(((BIND_NODE_T *)node->ptr)[*seq]);
+                if (*(seq + 1) != 0) {
+                        if (node->type == NONE) {
+                                node->type = NODE;
+                                node->ptr  = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
+                                memset(node->ptr, 0, 256 * sizeof(BIND_NODE_T));
+                                // nothing
+                        } else if (node->type == FUNCTION) {
+                                node->type       = NODE;
+                                node->timeout_us = timeout;
+                                void * tmp       = node->ptr;
+                                node->ptr        = (BIND_NODE_T *)malloc(256 * sizeof(BIND_NODE_T));
+                                ((BIND_NODE_T *)node->ptr)[0].type = FUNCTION;
+                                ((BIND_NODE_T *)node->ptr)[0].ptr  = tmp;
+                                // nothing
+                        }
+                } else if (*(seq + 1) == 0) {
+                        if (node->type == NONE || node->type == FUNCTION) {
+                                node->ptr  = func;
+                                node->type = FUNCTION;
+                                // return here
+                                return 0;
+                        } else if (node->type == NODE) {
+                                ((BIND_NODE_T *)node->ptr)[0].type = FUNCTION;
+                                ((BIND_NODE_T *)node->ptr)[0].ptr  = func;
+                                // return here
+                                return 0;
+                        }
+                }
         }
-    }
-    return 0;
+        return 0;
 }
 
-void a(void) { printf("aaa\n"); }
-void b(void) { printf("bbb\n"); }
-void fuck(void) { printf("fuck\n"); }
-
 void input_loop(void) {
-    while (1) {
-        void * nullable addr = NULL;
         while (1) {
-            char c;
-            int i         = read(STDIN_FILENO, &c, 1);
-            SUCCESS_T ret = further_match(&addr, c);
-            if (ret == 0) {
-                if (addr) {
-                    ((void (*)(void))addr)();
+                void * nullable addr = NULL;
+                while (1) {
+                        char c;
+                        int i         = read(STDIN_FILENO, &c, 1);
+                        SUCCESS_T ret = further_match(&addr, c);
+                        if (ret == 0) {
+                                if (addr) {
+                                        ((void (*)(void))addr)();
+                                }
+                                break;
+                        } else if (ret == -1) {
+                                break;
+                        }
                 }
-                break;
-            } else if (ret == -1) {
-                break;
-            }
         }
-    }
 }
 
 SUCCESS_T further_match(void * nonnull * nonnull addr, char byte) {
-    static auto(node, &root);
-    node = &(((BIND_NODE_T *)node->ptr)[byte]);
-    if (node->type == FUNCTION) {
-        // printf("matched\n");
-        //((void (*)(void))node->ptr)();
-        *addr = node->ptr;
-        node  = &root;
-        return 0;
-    } else if (node->type == NONE) {
-        // printf("none,");
-        *addr = NULL;
-        node  = &root;
-        return -1;
-    } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type != FUNCTION) {
-        // printf("waiting,");
-        return 1;
-    } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type == FUNCTION) {
-        // printf("fork,");
-        timeout.tv_sec  = 0;
-        timeout.tv_usec = (long)node->timeout_us;
-        FD_ZERO(&set);
-        FD_SET(1, &set);
+        static auto(node, &root);
+        node = &(((BIND_NODE_T *)node->ptr)[byte]);
+        if (node->type == FUNCTION) {
+                // printf("matched\n");
+                //((void (*)(void))node->ptr)();
+                *addr = node->ptr;
+                node  = &root;
+                return 0;
+        } else if (node->type == NONE) {
+                // printf("none,");
+                *addr = NULL;
+                node  = &root;
+                return -1;
+        } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type != FUNCTION) {
+                // printf("waiting,");
+                return 1;
+        } else if (node->type == NODE && ((BIND_NODE_T *)node->ptr)[0].type == FUNCTION) {
+                // printf("fork,");
+                timeout.tv_sec  = 0;
+                timeout.tv_usec = (long)node->timeout_us;
+                FD_ZERO(&set);
+                FD_SET(1, &set);
 
-        if (select(2, &set, NULL, NULL, &timeout) == 0) {
-            // printf("timeout\n");
-            *addr = ((BIND_NODE_T *)node->ptr)[0].ptr;
-            //((void (*)(void))((BIND_NODE_T *)node->ptr)[0].ptr)();
-            node = &root;
-            return 0;
-        } else {
-            // printf("notimeout,");
-            return 1;
+                if (select(2, &set, NULL, NULL, &timeout) == 0) {
+                        // printf("timeout\n");
+                        *addr = ((BIND_NODE_T *)node->ptr)[0].ptr;
+                        //((void (*)(void))((BIND_NODE_T *)node->ptr)[0].ptr)();
+                        node = &root;
+                        return 0;
+                } else {
+                        // printf("notimeout,");
+                        return 1;
+                }
         }
-    }
-}
-
-void enable_raw(void) {
-    struct termios raw = orig_termios;
-    raw.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+        return -128;
 }
 
 // int main(void) {
